@@ -60,5 +60,5 @@ export class SonioxApi implements ICredentialType {
 		],
 	};
 
-	documentationUrl = 'https://docs.soniox.com/reference/api-reference';
+	documentationUrl = 'https://soniox.com/docs/stt/integrations/n8n';
 }

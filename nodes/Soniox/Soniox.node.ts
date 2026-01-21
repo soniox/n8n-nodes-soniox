@@ -66,6 +66,93 @@ function normalizeLanguageHints(input: IDataObject): string[] {
 	return languages.map((entry) => entry.code).filter(isNonEmptyString);
 }
 
+interface SonioxApiError {
+	message?: string;
+	description?: string;
+	httpCode?: number;
+	cause?: {
+		message?: string;
+		code?: string;
+		error?: { message?: string; detail?: string; code?: string };
+	};
+	response?: {
+		statusCode?: number;
+		body?: { message?: string; detail?: string; error?: string; code?: string };
+	};
+}
+
+function getErrorHint(statusCode: number | undefined, errorCode: string | undefined): string {
+	// Check for specific error codes first
+	if (errorCode) {
+		const codeHints: Record<string, string> = {
+			invalid_api_key: 'Check that your API key is correct in the Soniox credentials.',
+			insufficient_credits: 'Your Soniox account may need more credits. Visit dashboard.soniox.com.',
+			file_too_large: 'The audio file exceeds the maximum size limit. Try a smaller file.',
+			unsupported_format: 'This audio format is not supported. Supported formats include WAV, MP3, FLAC, and more.',
+			transcription_not_found: 'The transcription ID does not exist or has been deleted.',
+			rate_limit_exceeded: 'You have exceeded the API rate limit. Wait a moment and try again.',
+		};
+		if (codeHints[errorCode]) {
+			return codeHints[errorCode];
+		}
+	}
+
+	// Fall back to HTTP status code hints
+	if (statusCode) {
+		const statusHints: Record<number, string> = {
+			400: 'Check your request parameters. The API received invalid input.',
+			401: 'Authentication failed. Verify your Soniox API key in the credentials.',
+			403: 'Access denied. Your API key may not have permission for this operation.',
+			404: 'Resource not found. The transcription ID may be invalid or deleted.',
+			413: 'The audio file is too large. Try a smaller file or use a URL instead.',
+			422: 'Invalid request data. Check that all required fields are filled correctly.',
+			429: 'Rate limit exceeded. Wait a moment before retrying.',
+			500: 'Soniox server error. Try again later or contact Soniox support.',
+			502: 'Soniox service temporarily unavailable. Try again in a few moments.',
+			503: 'Soniox service is under maintenance. Try again later.',
+		};
+		if (statusHints[statusCode]) {
+			return statusHints[statusCode];
+		}
+	}
+
+	return '';
+}
+
+function extractErrorDetails(error: SonioxApiError): {
+	message: string;
+	statusCode: number | undefined;
+	errorCode: string | undefined;
+} {
+	let detail = '';
+
+	// Extract status code
+	const statusCode = error.httpCode || error.response?.statusCode;
+
+	// Extract error code
+	const errorCode =
+		error.cause?.error?.code || error.cause?.code || error.response?.body?.code || undefined;
+
+	// Extract message
+	if (error.cause?.error?.detail) {
+		detail = error.cause.error.detail;
+	} else if (error.cause?.error?.message) {
+		detail = error.cause.error.message;
+	} else if (error.response?.body?.detail) {
+		detail = error.response.body.detail;
+	} else if (error.response?.body?.message) {
+		detail = error.response.body.message;
+	} else if (error.response?.body?.error) {
+		detail = error.response.body.error;
+	} else if (error.description) {
+		detail = error.description;
+	} else if (error.message) {
+		detail = error.message;
+	}
+
+	return { message: detail, statusCode, errorCode };
+}
+
 async function sonioxApiRequest(
 	this: IExecuteFunctions,
 	options: {
@@ -84,34 +171,19 @@ async function sonioxApiRequest(
 			json: true,
 		});
 	} catch (error: unknown) {
-		// Try to extract detailed error message from API response
-		const err = error as {
-			message?: string;
-			description?: string;
-			cause?: { message?: string; error?: { message?: string; detail?: string } };
-			response?: { body?: { message?: string; detail?: string; error?: string } };
-		};
+		const { message, statusCode, errorCode } = extractErrorDetails(error as SonioxApiError);
+		const hint = getErrorHint(statusCode, errorCode);
 
-		let detail = '';
-		if (err.cause?.error?.detail) {
-			detail = err.cause.error.detail;
-		} else if (err.cause?.error?.message) {
-			detail = err.cause.error.message;
-		} else if (err.response?.body?.detail) {
-			detail = err.response.body.detail;
-		} else if (err.response?.body?.message) {
-			detail = err.response.body.message;
-		} else if (err.response?.body?.error) {
-			detail = err.response.body.error;
-		} else if (err.description) {
-			detail = err.description;
+		let errorMessage = 'Soniox API error';
+		if (message) {
+			errorMessage = `Soniox API error: ${message}`;
+		} else if (statusCode) {
+			errorMessage = `Soniox API error (HTTP ${statusCode})`;
 		}
 
-		if (detail) {
-			throw new NodeOperationError(this.getNode(), `Soniox API error: ${detail}`);
-		}
-
-		throw error;
+		throw new NodeOperationError(this.getNode(), errorMessage, {
+			description: hint || undefined,
+		});
 	}
 }
 
@@ -184,7 +256,9 @@ async function uploadFile(
 	}
 
 	if (!uploadResponse?.id) {
-		throw new NodeOperationError(this.getNode(), 'File upload did not return a file id');
+		throw new NodeOperationError(this.getNode(), 'File upload did not return a file ID', {
+			description: 'The file upload response was unexpected. Ensure the file is a valid audio file and try again.',
+		});
 	}
 
 	return uploadResponse.id as string;
@@ -219,6 +293,9 @@ async function pollForCompletion(
 			throw new NodeOperationError(
 				this.getNode(),
 				`Transcription failed with status "${STATUS_ERROR}"${errorMessage}`,
+				{
+					description: 'The transcription could not be completed. Check that the audio file is valid and in a supported format.',
+				},
 			);
 		}
 
@@ -227,6 +304,9 @@ async function pollForCompletion(
 			throw new NodeOperationError(
 				this.getNode(),
 				`Polling timed out after ${maxWaitSec} seconds${statusText}`,
+				{
+					description: 'The transcription is taking longer than expected. Try increasing the "Max Wait" setting, or disable "Wait for Completion" and fetch results later.',
+				},
 			);
 		}
 
@@ -817,7 +897,9 @@ export class Soniox implements INodeType {
 					const model = this.getNodeParameter('model', itemIndex) as string;
 
 					if (!isNonEmptyString(model)) {
-						throw new NodeOperationError(this.getNode(), 'Model is required');
+						throw new NodeOperationError(this.getNode(), 'Model is required', {
+							description: 'Specify a Soniox model ID (e.g., "stt-async-v3"). Check Soniox documentation for available models.',
+						});
 					}
 
 					let audioUrl: string | undefined;
@@ -832,23 +914,32 @@ export class Soniox implements INodeType {
 				} else if (audioSource === 'url') {
 						const rawAudioUrl = this.getNodeParameter('audioUrl', itemIndex) as string;
 						if (!isNonEmptyString(rawAudioUrl)) {
-							throw new NodeOperationError(this.getNode(), 'Audio URL is required');
+							throw new NodeOperationError(this.getNode(), 'Audio URL is required', {
+								description: 'Provide a publicly accessible URL to your audio file (e.g., https://example.com/audio.wav).',
+							});
 						}
 						audioUrl = rawAudioUrl;
 					} else if (audioSource === 'fileId') {
 						const rawFileId = this.getNodeParameter('fileId', itemIndex) as string;
 						if (!isNonEmptyString(rawFileId)) {
-							throw new NodeOperationError(this.getNode(), 'File ID is required');
+							throw new NodeOperationError(this.getNode(), 'File ID is required', {
+								description: 'Provide the ID of a file previously uploaded to Soniox.',
+							});
 						}
 						fileId = rawFileId;
 					} else {
-						throw new NodeOperationError(this.getNode(), `Unsupported audio source: ${audioSource}`);
+						throw new NodeOperationError(this.getNode(), `Unsupported audio source: ${audioSource}`, {
+							description: 'Select a valid audio source: Binary File, Audio URL, or File ID.',
+						});
 					}
 
 					if ((audioUrl && fileId) || (!audioUrl && !fileId)) {
 						throw new NodeOperationError(
 							this.getNode(),
 							'Provide exactly one audio source (audio URL or file ID)',
+							{
+								description: 'Select one audio source type and provide the required value.',
+							},
 						);
 					}
 
@@ -976,6 +1067,9 @@ export class Soniox implements INodeType {
 							throw new NodeOperationError(
 								this.getNode(),
 								'Target language is required for one-way translation',
+								{
+									description: 'Specify the language code to translate to (e.g., "en", "es", "fr").',
+								},
 							);
 						}
 						body.translation = {
@@ -989,6 +1083,9 @@ export class Soniox implements INodeType {
 							throw new NodeOperationError(
 								this.getNode(),
 								'Language A and Language B are required for two-way translation',
+								{
+									description: 'Specify both language codes for bidirectional translation (e.g., "en" and "es").',
+								},
 							);
 						}
 						body.translation = {
@@ -1025,6 +1122,9 @@ export class Soniox implements INodeType {
 					throw new NodeOperationError(
 						this.getNode(),
 						'Transcription creation did not return an ID',
+						{
+							description: 'The Soniox API response was unexpected. Please try again or contact Soniox support.',
+						},
 					);
 				}
 
@@ -1058,7 +1158,9 @@ export class Soniox implements INodeType {
 						'',
 					) as string;
 					if (!isNonEmptyString(transcriptionId)) {
-						throw new NodeOperationError(this.getNode(), 'Transcription ID is required');
+						throw new NodeOperationError(this.getNode(), 'Transcription ID is required', {
+							description: 'Provide the transcription ID returned when creating a transcription, or from a webhook callback.',
+						});
 					}
 
 					const waitForCompletion = this.getNodeParameter(
@@ -1105,6 +1207,9 @@ export class Soniox implements INodeType {
 							throw new NodeOperationError(
 								this.getNode(),
 								`Transcription failed with status "${STATUS_ERROR}"${errorMessage}`,
+								{
+									description: 'The transcription could not be completed. Check that the audio file was valid and in a supported format.',
+								},
 							);
 						}
 

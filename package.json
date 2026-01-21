@@ -1,19 +1,26 @@
 {
-    "name": "n8n-nodes-stt",
+    "name": "n8n-nodes-soniox",
     "version": "0.1.0",
-    "description": "",
+    "description": "n8n community node for Soniox speech-to-text transcription",
     "license": "MIT",
-    "homepage": "",
+    "homepage": "https://soniox.com",
     "keywords": [
-        "n8n-community-node-package"
+        "n8n-community-node-package",
+        "n8n",
+        "soniox",
+        "speech-to-text",
+        "transcription",
+        "stt",
+        "audio",
+        "voice"
     ],
     "author": {
-        "name": "Tim Vucina",
-        "email": "tim.vucina@gmail.com"
+        "name": "Soniox",
+        "url": "https://soniox.com"
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/<...>/n8n-nodes-<...>.git"
+        "url": "https://github.com/soniox/n8n-nodes-soniox.git"
     },
     "scripts": {
         "build": "n8n-node build",
@@ -30,9 +37,11 @@
     "n8n": {
         "n8nNodesApiVersion": 1,
         "strict": true,
-        "credentials": [],
+        "credentials": [
+            "dist/credentials/SonioxApi.credentials.js"
+        ],
         "nodes": [
-            "dist/nodes/Example/Example.node.js"
+            "dist/nodes/Soniox/Soniox.node.js"
         ]
     },
     "devDependencies": {

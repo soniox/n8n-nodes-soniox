@@ -1,17 +1,17 @@
 {
-	"node": "n8n-nodes-stt",
+	"node": "n8n-nodes-soniox",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": ["AI", "Audio"],
 	"resources": {
 		"credentialDocumentation": [
 			{
-				"url": "https://github.com/org/repo?tab=readme-ov-file#credentials"
+				"url": "https://soniox.com/docs/stt/integrations/n8n#credentials"
 			}
 		],
 		"primaryDocumentation": [
 			{
-				"url": "https://github.com/org/repo?tab=readme-ov-file"
+				"url": "https://soniox.com/docs/stt/integrations/n8n"
 			}
 		]
 	}
