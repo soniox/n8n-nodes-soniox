@@ -46,18 +46,9 @@ export class SonioxApi implements ICredentialType {
 	test: ICredentialTestRequest = {
 		request: {
 			baseURL: '={{$credentials.baseUrl}}',
-			url: '/v1/transcriptions/credential-test',
+			url: '/v1/transcriptions?limit=1',
 			method: 'GET',
 		},
-		rules: [
-			{
-				type: 'responseCode',
-				properties: {
-					value: 404,
-					message: 'Authentication failed. Verify your Soniox API key.',
-				},
-			},
-		],
 	};
 
 	documentationUrl = 'https://soniox.com/docs/stt/integrations/n8n';
