@@ -1,4 +1,4 @@
-# n8n-nodes-soniox
+# @soniox/n8n-nodes-soniox
 
 This is an n8n community node for [Soniox](https://soniox.com), providing speech-to-text transcription capabilities in your n8n workflows.
 
@@ -13,7 +13,7 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 **Quick install:**
 1. Go to **Settings** > **Community Nodes**
 2. Click **Install a community node**
-3. Enter `n8n-nodes-soniox`
+3. Enter `@soniox/n8n-nodes-soniox`
 4. Click **Install**
 
 ## Operations

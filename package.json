@@ -1,5 +1,5 @@
 {
-    "name": "n8n-nodes-soniox",
+    "name": "@soniox/n8n-nodes-soniox",
     "version": "0.1.0",
     "description": "n8n community node for Soniox speech-to-text transcription",
     "license": "MIT",
@@ -29,9 +29,7 @@
         "lint": "n8n-node lint",
         "lint:fix": "n8n-node lint --fix",
         "release": "n8n-node release",
-        "prepublishOnly": "n8n-node prerelease",
-        "verdaccio": "verdaccio --config ./verdaccio.yaml",
-        "publish:local": "npm publish --registry http://localhost:4873 --ignore-scripts"
+        "prepublishOnly": "n8n-node prerelease"
     },
     "files": [
         "dist"
@@ -52,8 +50,7 @@
         "eslint": "9.32.0",
         "prettier": "3.6.2",
         "release-it": "^19.0.4",
-        "typescript": "5.9.2",
-        "verdaccio": "^6.2.4"
+        "typescript": "5.9.2"
     },
     "peerDependencies": {
         "n8n-workflow": "*"

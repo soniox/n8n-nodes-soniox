@@ -820,20 +820,6 @@ export class Soniox implements INodeType {
 				],
 			},
 			{
-				displayName: 'Auto Delete',
-				name: 'autoDelete',
-				type: 'boolean',
-				default: true,
-				description: 'Whether to automatically delete the transcription (and uploaded file if applicable) after completion',
-				displayOptions: {
-					show: {
-						resource: ['transcription'],
-						operation: ['create'],
-						waitForCompletion: [true],
-					},
-				},
-			},
-			{
 				displayName: 'Target Language',
 				name: 'targetLanguage',
 				type: 'string',
@@ -872,6 +858,20 @@ export class Soniox implements INodeType {
 						resource: ['transcription'],
 						operation: ['create'],
 						translationType: ['two_way'],
+					},
+				},
+			},
+			{
+				displayName: 'Auto Delete',
+				name: 'autoDelete',
+				type: 'boolean',
+				default: true,
+				description: 'Whether to automatically delete the transcription (and uploaded file if applicable) after completion',
+				displayOptions: {
+					show: {
+						resource: ['transcription'],
+						operation: ['create'],
+						waitForCompletion: [true],
 					},
 				},
 			},
