@@ -1,0 +1,347 @@
+---
+title: n8n
+description: How to use Soniox Speech-to-Text AI with n8n
+---
+
+import Image from "next/image";
+
+<div className="flex items-center justify-center rounded-lg bg-gradient-to-br from-[#DCE7F8] to-[#F2F6FC] py-16">
+  <Image
+    src="/docs/integrations/n8n.svg"
+    alt="Soniox x n8n"
+    width={520}
+    height={100}
+    className="mb-6"
+    priority
+  />
+</div>
+
+## Overview
+
+Soniox Speech-to-Text AI turns audio into highly accurate text. Paired with n8n, you can build powerful automation workflows that transcribe audio from any source.
+
+Use the Soniox node in your n8n workflows to:
+
+- Transcribe audio files uploaded to cloud storage
+- Process voice messages from messaging platforms
+- Build automated transcription pipelines at scale
+- Combine speech-to-text with other n8n integrations
+
+All with enterprise-grade accuracy.
+
+---
+
+## Getting started
+
+To use Soniox with n8n, you'll need:
+
+- An [n8n](https://n8n.io/) instance (self-hosted or cloud)
+- A [Soniox account](https://console.soniox.com/) with an API key
+
+---
+
+## Installation
+
+Install the Soniox community node from the n8n interface:
+
+1. Go to **Settings** > **Community Nodes**
+2. Click **Install a community node**
+3. Enter `n8n-nodes-soniox`
+4. Click **Install**
+
+Alternatively, install via npm in your self-hosted n8n instance:
+
+```bash
+npm install n8n-nodes-soniox
+```
+
+---
+
+## Credentials
+
+The Soniox node requires an API key to authenticate.
+
+### Get your API key
+
+1. Sign in to the [Soniox Console](https://console.soniox.com/)
+2. Navigate to **API Keys**
+3. Create a new key or copy an existing one
+
+### Add credentials in n8n
+
+1. In n8n, go to **Credentials** > **Add Credential**
+2. Search for **Soniox API**
+3. Enter your API key
+4. Click **Save**
+
+The credentials will be tested automatically. If successful, you're ready to use the Soniox node.
+
+---
+
+## Operations
+
+The Soniox node supports three operations:
+
+### Create transcription
+
+Creates a new transcription job from an audio source. You can choose to wait for completion or receive results asynchronously via webhook.
+
+**Audio sources:**
+
+| Source | Description |
+|--------|-------------|
+| Binary File | Upload audio from a previous node (e.g., HTTP Request, Read Binary File) |
+| Audio URL | Provide a publicly accessible URL to the audio file |
+| File ID | Use a file previously uploaded to Soniox |
+
+### Get results
+
+Retrieves the status and transcript for an existing transcription job. Use this when processing transcriptions asynchronously.
+
+### Delete
+
+Deletes a transcription and its associated file from Soniox. Simply provide the transcription ID — the node automatically fetches the file ID and deletes both resources. Use this to clean up after async workflows.
+
+---
+
+## Basic usage
+
+### Transcribe from URL
+
+The simplest way to transcribe audio is from a public URL:
+
+1. Add the **Soniox** node to your workflow
+2. Select **Create** operation
+3. Set **Audio Source** to **Audio URL**
+4. Enter the URL to your audio file
+5. Execute the workflow
+
+The node will wait for the transcription to complete and return the full transcript.
+
+### Transcribe from binary data
+
+To transcribe audio from another node (like HTTP Request or Read Binary File):
+
+1. Connect the source node to the Soniox node
+2. Select **Create** operation
+3. Set **Audio Source** to **Binary File**
+4. Set **Binary Property Name** to the property containing your audio (default: `data`)
+5. Execute the workflow
+
+---
+
+## Advanced usage
+
+### Language hints
+
+The model automatically detects and transcribes any supported language. It also handles multilingual audio, even when multiple languages appear within the same conversation.
+
+If you know which languages are likely to be spoken, you can provide language hints to improve accuracy:
+
+1. In the Soniox node, find **Language Hints**
+2. Click **Add Language**
+3. Enter the language code (e.g., `en`, `es`, `fr`)
+4. Repeat for additional languages
+
+Enable **Language Hints Strict** to treat hints as constraints — the model will only transcribe in the specified languages.
+
+See [list of supported languages](/stt/concepts/supported-languages) for all available language codes.
+
+Learn more about [language hints](/stt/concepts/language-hints).
+
+### Speaker diarization
+
+Enable **Enable Speaker Diarization** to identify and separate different speakers in the audio. The transcript will include speaker labels for each segment.
+
+### Language identification
+
+Enable **Enable Language Identification** to include detected language information in the transcript output.
+
+### Customization with context
+
+Provide context to help the model better understand domain-specific terminology, names, or phrases.
+
+**Simple text context:**
+
+1. Set **Context Mode** to **Text**
+2. Enter relevant terms or phrases in the **Context Text** field
+
+```
+Celebrex, Zyrtec, Xanax, Prilosec, Amoxicillin
+```
+
+**Structured JSON context:**
+
+For more control, use structured context:
+
+1. Set **Context Mode** to **Structured JSON**
+2. Enter a JSON object in the **Context JSON** field
+
+```json
+{
+  "general": [
+    {"key": "domain", "value": "Healthcare"}
+  ],
+  "text": "Medical consultation recording",
+  "terms": ["Celebrex", "Zyrtec", "Xanax"],
+  "translation_terms": [
+    {"source": "Dr. Smith", "target": "Dr. Smith"}
+  ]
+}
+```
+
+Learn more about [customizing with context](/stt/concepts/context).
+
+### Translation
+
+Soniox can translate the transcript to another language during transcription.
+
+**One-way translation:**
+
+Translate the transcript to a single target language:
+
+1. Set **Translation Type** to **One Way**
+2. Enter the **Target Language** code (e.g., `es` for Spanish)
+
+**Two-way translation:**
+
+For conversations between speakers of two languages, translate each speaker to the other's language:
+
+1. Set **Translation Type** to **Two Way**
+2. Enter **Language A** (e.g., `en`)
+3. Enter **Language B** (e.g., `es`)
+
+---
+
+## Async processing with webhooks
+
+For long audio files or high-volume processing, you can use webhooks instead of waiting for completion:
+
+1. Set **Wait for Completion** to **false**
+2. Enter your **Webhook URL**
+3. Optionally set **Webhook Auth Header Name** and **Webhook Auth Header Value** for authentication
+
+The node will immediately return the transcription ID and file ID (if a binary file was uploaded). Soniox will send the results to your webhook when processing completes.
+
+To fetch results later, use the **Get Results** operation with the transcription ID.
+
+---
+
+## Cleanup and resource management
+
+When you upload binary files, Soniox stores them temporarily. To avoid accumulating unused files, use the cleanup features:
+
+### Automatic cleanup (recommended)
+
+When **Wait for Completion** is enabled, the **Auto Delete** option is available (enabled by default).
+
+When enabled, the node automatically deletes:
+- The **transcription** — always deleted regardless of audio source
+- The **uploaded file** — only deleted when using Binary File as the audio source (since that's when a file is uploaded)
+
+This keeps your Soniox account clean without extra workflow steps.
+
+### Manual cleanup
+
+For async workflows (when not waiting for completion), use the **Delete** operation to clean up after processing:
+
+1. Add a new **Soniox** node after receiving the webhook callback
+2. Select **Delete** operation
+3. Enter the **Transcription ID**
+4. Execute
+
+The Delete operation automatically fetches the transcription details to find the associated file ID, then deletes both the transcription and its file (if one exists).
+
+**Example async cleanup workflow:**
+
+1. **Soniox** (Create) — Upload file, don't wait, returns `id` (transcription ID)
+2. **Webhook** trigger — Receives completion callback from Soniox
+3. Process the transcript as needed
+4. **Soniox** (Delete) — Clean up using the transcription ID from step 1
+
+---
+
+## Output options
+
+### Output mode
+
+Choose what data to return when the transcription completes:
+
+| Mode | Description |
+|------|-------------|
+| Full Response | Returns the complete transcript with all metadata, timestamps, and speaker information |
+| Text Only | Returns only the transcribed text as a simple string |
+
+### Polling settings
+
+When **Wait for Completion** is enabled, you can configure:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Poll Interval (Sec) | 1 | How often to check for completion |
+| Max Wait (Sec) | 300 | Maximum time to wait before timing out |
+
+---
+
+## Example workflows
+
+### Transcribe uploaded files
+
+Combine with the **Webhook** trigger to transcribe files uploaded via HTTP:
+
+1. **Webhook** node receives the audio file
+2. **Soniox** node transcribes the binary data
+3. **Respond to Webhook** returns the transcript
+
+### Process files from cloud storage
+
+Transcribe audio files from Google Drive, Dropbox, or S3:
+
+1. **Google Drive** / **Dropbox** / **S3** node downloads the file
+2. **Soniox** node transcribes the binary data
+3. **Google Sheets** / **Notion** / **Airtable** stores the results
+
+### Async batch processing
+
+Process multiple files without blocking:
+
+1. **Loop Over Items** iterates through audio files
+2. **Soniox** (Create) creates transcriptions with webhooks (Wait for Completion = false)
+3. Separate workflow with **Webhook** trigger receives completed transcriptions
+4. **Soniox** (Delete) cleans up the transcription and file after processing
+
+---
+
+## Troubleshooting
+
+### Authentication errors
+
+If you see authentication errors:
+
+- Verify your API key is correct in the Soniox credentials
+- Check that your Soniox account is active
+- Ensure you have sufficient credits
+
+### Timeout errors
+
+If transcriptions timeout:
+
+- Increase the **Max Wait (Sec)** value
+- Use async processing with webhooks for long files
+- Check that your audio file is valid and not corrupted
+
+### Unsupported format errors
+
+Soniox supports most common audio formats including WAV, MP3, FLAC, M4A, OGG, and more. If you encounter format errors:
+
+- Ensure the file is a valid audio file
+- Try converting to a standard format like WAV or MP3
+
+---
+
+## Resources
+
+- [Soniox API Reference](/stt/api-reference)
+- [Supported Languages](/stt/concepts/supported-languages)
+- [n8n Documentation](https://docs.n8n.io/)
+- [GitHub Repository](https://github.com/soniox/n8n-nodes-soniox)

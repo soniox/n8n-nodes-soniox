@@ -324,6 +324,71 @@ async function pollForCompletion(
 	};
 }
 
+interface DeleteResult {
+	deleted: {
+		transcription?: string;
+		file?: string;
+	};
+	warnings: string[];
+}
+
+async function tryDeleteResource(
+	this: IExecuteFunctions,
+	url: string,
+	description: string,
+): Promise<string | null> {
+	try {
+		await this.helpers.httpRequestWithAuthentication.call(this, SONIOX_CREDENTIALS, {
+			method: 'DELETE',
+			url,
+			json: true,
+		});
+		return null;
+	} catch (error: unknown) {
+		const { message } = extractErrorDetails(error as SonioxApiError);
+		return `Failed to delete ${description}: ${message || 'Unknown error'}`;
+	}
+}
+
+async function deleteResources(
+	this: IExecuteFunctions,
+	transcriptionId?: string,
+	fileId?: string,
+): Promise<DeleteResult> {
+	const result: DeleteResult = {
+		deleted: {},
+		warnings: [],
+	};
+
+	if (transcriptionId) {
+		const warning = await tryDeleteResource.call(
+			this,
+			`/v1/transcriptions/${transcriptionId}`,
+			`transcription ${transcriptionId}`,
+		);
+		if (warning) {
+			result.warnings.push(warning);
+		} else {
+			result.deleted.transcription = transcriptionId;
+		}
+	}
+
+	if (fileId) {
+		const warning = await tryDeleteResource.call(
+			this,
+			`/v1/files/${fileId}`,
+			`file ${fileId}`,
+		);
+		if (warning) {
+			result.warnings.push(warning);
+		} else {
+			result.deleted.file = fileId;
+		}
+	}
+
+	return result;
+}
+
 export class Soniox implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Soniox',
@@ -374,6 +439,11 @@ export class Soniox implements INodeType {
 						name: 'Create',
 						value: 'create',
 						action: 'Create a transcription',
+					},
+					{
+						name: 'Delete',
+						value: 'delete',
+						action: 'Delete transcription and or file',
 					},
 					{
 						name: 'Get Results',
@@ -750,6 +820,20 @@ export class Soniox implements INodeType {
 				],
 			},
 			{
+				displayName: 'Auto Delete',
+				name: 'autoDelete',
+				type: 'boolean',
+				default: true,
+				description: 'Whether to automatically delete the transcription (and uploaded file if applicable) after completion',
+				displayOptions: {
+					show: {
+						resource: ['transcription'],
+						operation: ['create'],
+						waitForCompletion: [true],
+					},
+				},
+			},
+			{
 				displayName: 'Target Language',
 				name: 'targetLanguage',
 				type: 'string',
@@ -802,6 +886,21 @@ export class Soniox implements INodeType {
 					show: {
 						resource: ['transcription'],
 						operation: ['getResults'],
+					},
+				},
+			},
+			// Delete operation properties
+			{
+				displayName: 'Transcription ID',
+				name: 'deleteTranscriptionId',
+				type: 'string',
+				default: '',
+				required: true,
+				description: 'ID of the transcription to delete (will also delete the associated file if one exists)',
+				displayOptions: {
+					show: {
+						resource: ['transcription'],
+						operation: ['delete'],
 					},
 				},
 			},
@@ -1142,13 +1241,73 @@ export class Soniox implements INodeType {
 					maxWaitSec,
 				});
 
+				// Auto-delete if enabled
+				const autoDelete = this.getNodeParameter('autoDelete', itemIndex, true) as boolean;
+
+				let deleteWarnings: string[] = [];
+				if (autoDelete) {
+					// Always delete transcription, but only delete file if we uploaded it (binary source)
+					const fileIdToDelete = audioSource === 'binary' ? fileId : undefined;
+					const deleteResult = await deleteResources.call(this, transcriptionId, fileIdToDelete);
+					deleteWarnings = deleteResult.warnings;
+				}
+
 				const output =
 					outputMode === 'textOnly'
 						? { text: result.transcript?.text ?? '' }
 						: redactWebhookAuthHeaderValue(result.transcript);
 
+				const jsonOutput: IDataObject = output as IDataObject;
+				if (deleteWarnings.length > 0) {
+					jsonOutput._deleteWarnings = deleteWarnings;
+				}
+
 				returnData.push({
-					json: output,
+					json: jsonOutput,
+					pairedItem: { item: itemIndex },
+				});
+			} else if (operation === 'delete') {
+				const deleteTranscriptionId = this.getNodeParameter(
+					'deleteTranscriptionId',
+					itemIndex,
+					'',
+				) as string;
+
+				if (!isNonEmptyString(deleteTranscriptionId)) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Transcription ID is required',
+						{
+							description: 'Provide the ID of the transcription you want to delete.',
+						},
+					);
+				}
+
+				// Fetch transcription to get the file_id
+				let fileIdToDelete: string | undefined;
+				try {
+					const transcriptionDetails = (await sonioxApiRequest.call(this, {
+						method: 'GET',
+						url: `/v1/transcriptions/${deleteTranscriptionId}`,
+					})) as IDataObject;
+					fileIdToDelete = transcriptionDetails?.file_id as string | undefined;
+				} catch {
+					// If we can't fetch the transcription, still try to delete it
+					fileIdToDelete = undefined;
+				}
+
+				const deleteResult = await deleteResources.call(
+					this,
+					deleteTranscriptionId,
+					isNonEmptyString(fileIdToDelete) ? fileIdToDelete : undefined,
+				);
+
+				returnData.push({
+					json: {
+						success: deleteResult.warnings.length === 0,
+						deleted: deleteResult.deleted,
+						warnings: deleteResult.warnings.length > 0 ? deleteResult.warnings : undefined,
+					},
 					pairedItem: { item: itemIndex },
 				});
 			} else if (operation === 'getResults') {
