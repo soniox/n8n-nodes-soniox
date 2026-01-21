@@ -2,7 +2,7 @@
 	"node": "n8n-nodes-soniox",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
-	"categories": ["AI", "Audio"],
+	"categories": ["AI, LLM & Voice"],
 	"resources": {
 		"credentialDocumentation": [
 			{

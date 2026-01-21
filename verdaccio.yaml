@@ -1,0 +1,39 @@
+# Verdaccio config for local testing
+storage: ./.verdaccio/storage
+plugins: ./.verdaccio/plugins
+
+web:
+  title: n8n-nodes-soniox Test Registry
+
+auth:
+  htpasswd:
+    file: ./.verdaccio/htpasswd
+    # Allow anyone to register/publish (for local testing only)
+    max_users: 100
+
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+
+packages:
+  # Your package - use local storage only (no proxy to npm)
+  'n8n-nodes-soniox':
+    access: $all
+    publish: $all
+    unpublish: $all
+
+  # All other packages - proxy to npm
+  '**':
+    access: $all
+    publish: $authenticated
+    unpublish: $authenticated
+    proxy: npmjs
+
+server:
+  keepAliveTimeout: 60
+
+middlewares:
+  audit:
+    enabled: true
+
+log: { type: stdout, format: pretty, level: info }

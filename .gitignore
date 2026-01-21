@@ -50,3 +50,6 @@ coverage/
 
 # Release
 .release-it/
+
+# Local Verdaccio registry (for testing)
+.verdaccio/
