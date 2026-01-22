@@ -34,7 +34,7 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 To use this node, you need a Soniox API key:
 
 1. Sign up at [soniox.com](https://soniox.com)
-2. Go to your [Soniox Dashboard](https://dashboard.soniox.com)
+2. Go to your [Soniox Console](https://console.soniox.com/)
 3. Navigate to API Keys and create a new key
 4. In n8n, create new credentials of type **Soniox API**
 5. Enter your API key
