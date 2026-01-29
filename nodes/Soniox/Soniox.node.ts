@@ -1227,35 +1227,45 @@ export class Soniox implements INodeType {
 					);
 				}
 
-				const pollIntervalSec = this.getNodeParameter(
-					'pollIntervalSec',
-					itemIndex,
-					1,
-				) as number;
-				const maxWaitSec = this.getNodeParameter('maxWaitSec', itemIndex, 300) as number;
-				const outputMode = this.getNodeParameter('outputMode', itemIndex, 'full') as string;
+			const pollIntervalSec = this.getNodeParameter(
+				'pollIntervalSec',
+				itemIndex,
+				1,
+			) as number;
+			const maxWaitSec = this.getNodeParameter('maxWaitSec', itemIndex, 300) as number;
+			const outputMode = this.getNodeParameter('outputMode', itemIndex, 'full') as string;
+			const autoDelete = this.getNodeParameter('autoDelete', itemIndex, true) as boolean;
 
-				const result = await pollForCompletion.call(this, {
+			let result: TranscriptResult | undefined;
+			let pollError: Error | undefined;
+
+			try {
+				result = await pollForCompletion.call(this, {
 					transcriptionId,
 					pollIntervalSec,
 					maxWaitSec,
 				});
+			} catch (error) {
+				pollError = error as Error;
+			}
 
-				// Auto-delete if enabled
-				const autoDelete = this.getNodeParameter('autoDelete', itemIndex, true) as boolean;
+			// Auto-delete if enabled (always, even on failure - best effort cleanup)
+			let deleteWarnings: string[] = [];
+			if (autoDelete) {
+				const fileIdToDelete = audioSource === 'binary' ? fileId : undefined;
+				const deleteResult = await deleteResources.call(this, transcriptionId, fileIdToDelete);
+				deleteWarnings = deleteResult.warnings;
+			}
 
-				let deleteWarnings: string[] = [];
-				if (autoDelete) {
-					// Always delete transcription, but only delete file if we uploaded it (binary source)
-					const fileIdToDelete = audioSource === 'binary' ? fileId : undefined;
-					const deleteResult = await deleteResources.call(this, transcriptionId, fileIdToDelete);
-					deleteWarnings = deleteResult.warnings;
-				}
+			// Re-throw the original error after cleanup
+			if (pollError) {
+				throw pollError;
+			}
 
-				const output =
+			const output =
 					outputMode === 'textOnly'
-						? { text: result.transcript?.text ?? '' }
-						: redactWebhookAuthHeaderValue(result.transcript);
+						? { text: result!.transcript?.text ?? '' }
+						: redactWebhookAuthHeaderValue(result!.transcript);
 
 				const jsonOutput: IDataObject = output as IDataObject;
 				if (deleteWarnings.length > 0) {
