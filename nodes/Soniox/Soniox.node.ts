@@ -6,7 +6,7 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { NodeConnectionTypes, NodeOperationError, sleepWithAbort } from 'n8n-workflow';
+import { ApplicationError, NodeConnectionTypes, NodeOperationError, sleepWithAbort } from 'n8n-workflow';
 
 const SONIOX_CREDENTIALS = 'sonioxApi';
 const STATUS_COMPLETED = 'completed';
@@ -37,20 +37,27 @@ function redactWebhookAuthHeaderValue(data: IDataObject): IDataObject {
 	};
 }
 
-function parseJsonValue(value: unknown, fallback: IDataObject) {
-	if (value && typeof value === 'string') {
-		try {
-			return JSON.parse(value) as IDataObject;
-		} catch {
-			return fallback;
+function parseStructuredContext(value: unknown): IDataObject | undefined {
+	if (!value) return undefined;
+
+	// Already an object (n8n parsed it)
+	if (typeof value === 'object' && !Array.isArray(value)) {
+		return Object.keys(value).length > 0 ? (value as IDataObject) : undefined;
+	}
+
+	// String - need to parse
+	if (typeof value === 'string') {
+		const trimmed = value.trim();
+		if (!trimmed) return undefined;
+
+		const parsed = JSON.parse(trimmed);
+		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+			throw new ApplicationError('Context must be a JSON object, not an array or primitive');
 		}
+		return Object.keys(parsed).length > 0 ? (parsed as IDataObject) : undefined;
 	}
 
-	if (value && typeof value === 'object') {
-		return value as IDataObject;
-	}
-
-	return fallback;
+	return undefined;
 }
 
 function normalizeLanguageHints(input: IDataObject): string[] {
@@ -1073,12 +1080,15 @@ export class Soniox implements INodeType {
 							context = contextText;
 						}
 					} else if (contextMode === 'structured') {
-						const contextJson = this.getNodeParameter(
-							'contextJson',
-							itemIndex,
-							{},
-						) as IDataObject;
-						context = parseJsonValue(contextJson, {});
+						const contextJson = this.getNodeParameter('contextJson', itemIndex, {});
+						try {
+							context = parseStructuredContext(contextJson);
+						} catch (e) {
+							const message = e instanceof Error ? e.message : 'Invalid JSON';
+							throw new NodeOperationError(this.getNode(), `Invalid context: ${message}`, {
+								description: 'Check that your context JSON is valid. The API expects an object with optional fields: general, text, terms, translation_terms.',
+							});
+						}
 					}
 
 					const clientReferenceId = this.getNodeParameter(
