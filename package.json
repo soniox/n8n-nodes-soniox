@@ -1,6 +1,6 @@
 {
     "name": "@soniox/n8n-nodes-soniox",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "description": "n8n community node for Soniox speech-to-text transcription",
     "license": "MIT",
     "homepage": "https://soniox.com",
