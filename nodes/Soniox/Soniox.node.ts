@@ -52,7 +52,9 @@ function parseStructuredContext(value: unknown): IDataObject | undefined {
 
 		const parsed = JSON.parse(trimmed);
 		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-			throw new ApplicationError('Context must be a JSON object, not an array or primitive');
+			throw new ApplicationError(
+				'Context must be a JSON object, not an array or primitive. See https://soniox.com/docs/stt/concepts/context for details.',
+			);
 		}
 		return Object.keys(parsed).length > 0 ? (parsed as IDataObject) : undefined;
 	}
@@ -92,12 +94,13 @@ function getErrorHint(statusCode: number | undefined, errorCode: string | undefi
 	// Check for specific error codes first
 	if (errorCode) {
 		const codeHints: Record<string, string> = {
-			invalid_api_key: 'Check that your API key is correct in the Soniox credentials.',
+			invalid_api_key: 'Check that your API key is correct in the Soniox credentials. Check https://console.soniox.com/',
 			insufficient_credits: 'Your Soniox account may need more credits. Visit dashboard.soniox.com.',
 			file_too_large: 'The audio file exceeds the maximum size limit. Try a smaller file.',
 			unsupported_format: 'This audio format is not supported. Supported formats include WAV, MP3, FLAC, and more.',
 			transcription_not_found: 'The transcription ID does not exist or has been deleted.',
-			rate_limit_exceeded: 'You have exceeded the API rate limit. Wait a moment and try again.',
+			rate_limit_exceeded:
+				'You have exceeded the API rate limit. Wait a moment and try again. See https://soniox.com/docs/stt/async/limits-and-quotas for details.',
 		};
 		if (codeHints[errorCode]) {
 			return codeHints[errorCode];
@@ -188,8 +191,11 @@ async function sonioxApiRequest(
 			errorMessage = `Soniox API error (HTTP ${statusCode})`;
 		}
 
+		const description = hint
+			? `${hint} See https://soniox.com/docs/stt/async/error-handling for more information.`
+			: 'See https://soniox.com/docs/stt/async/error-handling for more information.';
 		throw new NodeOperationError(this.getNode(), errorMessage, {
-			description: hint || undefined,
+			description,
 		});
 	}
 }
@@ -264,7 +270,8 @@ async function uploadFile(
 
 	if (!uploadResponse?.id) {
 		throw new NodeOperationError(this.getNode(), 'File upload did not return a file ID', {
-			description: 'The file upload response was unexpected. Ensure the file is a valid audio file and try again.',
+			description:
+				'The file upload response was unexpected. Ensure the file is a valid audio file and try again. See https://soniox.com/docs/stt/api-reference/files/upload_file for details.',
 		});
 	}
 
@@ -301,7 +308,8 @@ async function pollForCompletion(
 				this.getNode(),
 				`Transcription failed with status "${STATUS_ERROR}"${errorMessage}`,
 				{
-					description: 'The transcription could not be completed. Check that the audio file is valid and in a supported format.',
+					description:
+						'The transcription could not be completed. Check that the audio file is valid and in a supported format.',
 				},
 			);
 		}
@@ -542,7 +550,7 @@ export class Soniox implements INodeType {
 				type: 'string',
 				default: 'stt-async-v3',
 				required: true,
-				description: 'Soniox model ID to use for transcription',
+				description: 'Soniox model ID to use for transcription. See https://soniox.com/docs/stt/models for available models.',
 				displayOptions: {
 					show: {
 						resource: ['transcription'],
@@ -576,7 +584,8 @@ export class Soniox implements INodeType {
 								type: 'string',
 								default: '',
 								placeholder: 'en',
-								description: 'Language code (e.g., en, fr, de, es)',
+								description:
+									'Language code (e.g., en, fr, de, es). See https://soniox.com/docs/stt/concepts/language-hints for details.',
 							},
 						],
 					},
@@ -587,7 +596,8 @@ export class Soniox implements INodeType {
 				name: 'languageHintsStrict',
 				type: 'boolean',
 				default: false,
-				description: 'Whether to treat language hints as strict constraints',
+				description:
+					'Whether to treat language hints as strict constraints. See https://soniox.com/docs/stt/concepts/language-hints for details.',
 				displayOptions: {
 					show: {
 						resource: ['transcription'],
@@ -649,7 +659,8 @@ export class Soniox implements INodeType {
 				typeOptions: {
 					rows: 4,
 				},
-				description: 'Free-form context text to improve transcription',
+				description:
+					'Free-form context text to improve transcription. See https://soniox.com/docs/stt/concepts/context for details.',
 				displayOptions: {
 					show: {
 						resource: ['transcription'],
@@ -663,7 +674,8 @@ export class Soniox implements INodeType {
 				name: 'contextJson',
 				type: 'json',
 				default: '{\n  "general": [{"key": "", "value": ""}],\n  "text": "",\n  "terms": [],\n  "translation_terms": [{"source": "", "target": ""}]\n}',
-				description: 'Structured context JSON payload',
+				description:
+					'Structured context JSON payload. See https://soniox.com/docs/stt/concepts/context for details.',
 				displayOptions: {
 					show: {
 						resource: ['transcription'],
@@ -691,7 +703,8 @@ export class Soniox implements INodeType {
 				type: 'string',
 				default: '',
 				placeholder: 'https://example.com/soniox/webhook',
-				description: 'Optional webhook URL for Soniox callbacks',
+				description:
+					'Optional webhook URL for Soniox callbacks. See https://soniox.com/docs/stt/async/webhooks for details.',
 				displayOptions: {
 					show: {
 						resource: ['transcription'],
@@ -704,7 +717,8 @@ export class Soniox implements INodeType {
 				name: 'webhookAuthHeaderName',
 				type: 'string',
 				default: '',
-				description: 'Header name for webhook authentication',
+				description:
+					'Header name for webhook authentication. See https://soniox.com/docs/stt/async/webhooks for details.',
 				displayOptions: {
 					show: {
 						resource: ['transcription'],
@@ -720,7 +734,8 @@ export class Soniox implements INodeType {
 				typeOptions: {
 					password: true,
 				},
-				description: 'Header value for webhook authentication',
+				description:
+					'Header value for webhook authentication. See https://soniox.com/docs/stt/async/webhooks for details.',
 				displayOptions: {
 					show: {
 						resource: ['transcription'],
@@ -831,7 +846,8 @@ export class Soniox implements INodeType {
 				name: 'targetLanguage',
 				type: 'string',
 				default: '',
-				description: 'Target language for one-way translation',
+				description:
+					'Target language for one-way translation. See https://soniox.com/docs/stt/async/async-translation for details.',
 				displayOptions: {
 					show: {
 						resource: ['transcription'],
@@ -845,7 +861,8 @@ export class Soniox implements INodeType {
 				name: 'languageA',
 				type: 'string',
 				default: '',
-				description: 'First language for two-way translation',
+				description:
+					'First language for two-way translation. See https://soniox.com/docs/stt/async/async-translation for details.',
 				displayOptions: {
 					show: {
 						resource: ['transcription'],
@@ -859,7 +876,8 @@ export class Soniox implements INodeType {
 				name: 'languageB',
 				type: 'string',
 				default: '',
-				description: 'Second language for two-way translation',
+				description:
+					'Second language for two-way translation. See https://soniox.com/docs/stt/async/async-translation for details.',
 				displayOptions: {
 					show: {
 						resource: ['transcription'],
@@ -1004,7 +1022,8 @@ export class Soniox implements INodeType {
 
 					if (!isNonEmptyString(model)) {
 						throw new NodeOperationError(this.getNode(), 'Model is required', {
-							description: 'Specify a Soniox model ID (e.g., "stt-async-v3"). Check Soniox documentation for available models.',
+							description:
+								'Specify a Soniox model ID (e.g., "stt-async-v3"). See https://soniox.com/docs/stt/models for available models.',
 						});
 					}
 
@@ -1086,7 +1105,8 @@ export class Soniox implements INodeType {
 						} catch (e) {
 							const message = e instanceof Error ? e.message : 'Invalid JSON';
 							throw new NodeOperationError(this.getNode(), `Invalid context: ${message}`, {
-								description: 'Check that your context JSON is valid. The API expects an object with optional fields: general, text, terms, translation_terms.',
+								description:
+									'Check that your context JSON is valid. The API expects an object with optional fields: general, text, terms, translation_terms. See https://soniox.com/docs/stt/concepts/context for details.',
 							});
 						}
 					}
@@ -1177,7 +1197,8 @@ export class Soniox implements INodeType {
 								this.getNode(),
 								'Target language is required for one-way translation',
 								{
-									description: 'Specify the language code to translate to (e.g., "en", "es", "fr").',
+									description:
+										'Specify the language code to translate to (e.g., "en", "es", "fr"). See https://soniox.com/docs/stt/async/async-translation for details.',
 								},
 							);
 						}
@@ -1193,7 +1214,8 @@ export class Soniox implements INodeType {
 								this.getNode(),
 								'Language A and Language B are required for two-way translation',
 								{
-									description: 'Specify both language codes for bidirectional translation (e.g., "en" and "es").',
+									description:
+										'Specify both language codes for bidirectional translation (e.g., "en" and "es"). See https://soniox.com/docs/stt/async/async-translation for details.',
 								},
 							);
 						}
