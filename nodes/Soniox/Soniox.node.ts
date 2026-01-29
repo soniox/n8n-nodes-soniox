@@ -1198,7 +1198,7 @@ export class Soniox implements INodeType {
 								'Target language is required for one-way translation',
 								{
 									description:
-										'Specify the language code to translate to (e.g., "en", "es", "fr"). See https://soniox.com/docs/stt/async/async-translation for details.',
+										'Specify the language code to translate to (e.g., "en", "es", "fr"). See https://soniox.com/docs/stt/concepts/language-hints#supported-languages for details.',
 								},
 							);
 						}
@@ -1215,7 +1215,7 @@ export class Soniox implements INodeType {
 								'Language A and Language B are required for two-way translation',
 								{
 									description:
-										'Specify both language codes for bidirectional translation (e.g., "en" and "es"). See https://soniox.com/docs/stt/async/async-translation for details.',
+										'Specify both language codes for bidirectional translation (e.g., "en" and "es"). See https://soniox.com/docs/stt/concepts/language-hints#supported-languages for details.',
 								},
 							);
 						}
