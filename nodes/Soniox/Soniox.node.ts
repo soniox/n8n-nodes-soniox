@@ -6,7 +6,7 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { ApplicationError, NodeConnectionTypes, NodeOperationError, sleepWithAbort } from 'n8n-workflow';
+import { ApplicationError, NodeConnectionTypes, NodeOperationError, sleep } from 'n8n-workflow';
 
 const SONIOX_CREDENTIALS = 'sonioxApi';
 const STATUS_COMPLETED = 'completed';
@@ -325,7 +325,7 @@ async function pollForCompletion(
 			);
 		}
 
-		await sleepWithAbort(pollDelay, this.getExecutionCancelSignal?.());
+		await sleep(pollDelay, this.getExecutionCancelSignal?.());
 	}
 
 	const transcript = (await sonioxApiRequest.call(this, {
